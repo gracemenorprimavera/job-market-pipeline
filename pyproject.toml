@@ -13,5 +13,90 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    # testing
     "pytest>=9.0.2",
+    "pytest-cov>=6.0.0",
+    # linting & formatting
+    "ruff>=0.9.0",
+    # type checking
+    "mypy>=1.14.0",
+    # security
+    "bandit[toml]>=1.8.0",
+    "pip-audit>=2.8.0",
+    "detect-secrets>=1.5.0",
+    # dead code
+    "vulture>=2.14",
 ]
+
+# ---------------------------------------------------------------------------
+# Ruff — linting + formatting (replaces flake8, isort, pyupgrade)
+# ---------------------------------------------------------------------------
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+exclude = [".venv", "__pycache__", "uv.lock"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes (unused imports, undefined names)
+    "I",   # isort (import ordering)
+    "B",   # flake8-bugbear (likely bugs)
+    "C4",  # flake8-comprehensions (better list/dict/set comprehensions)
+    "UP",  # pyupgrade (modernise Python syntax)
+]
+ignore = [
+    "E501",  # line too long — handled by formatter
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]  # allow assert in tests
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+# ---------------------------------------------------------------------------
+# mypy — static type checking
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.13"
+ignore_missing_imports = true    # third-party stubs (prefect, supabase) may be absent
+warn_return_any = true
+warn_unused_configs = true
+exclude = [".venv", "tests"]
+
+# ---------------------------------------------------------------------------
+# Bandit — security linting
+# ---------------------------------------------------------------------------
+[tool.bandit]
+exclude_dirs = [".venv", "tests"]
+skips = [
+    "B101",  # assert used — ok in tests (excluded above)
+    "B311",  # random — not used for security here
+]
+
+# ---------------------------------------------------------------------------
+# Pytest + Coverage
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts   = "-v"
+
+[tool.coverage.run]
+source = ["config", "flows", "tasks", "deployment"]
+omit   = ["tests/*", ".venv/*", "run_local.py"]
+
+[tool.coverage.report]
+show_missing  = true
+skip_covered  = false
+fail_under    = 30    # raise this as the test suite grows
+
+# ---------------------------------------------------------------------------
+# Vulture — dead code detection
+# ---------------------------------------------------------------------------
+[tool.vulture]
+min_confidence = 80
+paths          = ["config", "flows", "tasks", "deployment"]
+exclude        = [".venv"]

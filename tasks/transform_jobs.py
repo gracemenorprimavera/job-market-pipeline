@@ -1,19 +1,26 @@
-import re
-from datetime import datetime, timezone, date
-from prefect import task, get_run_logger
+from datetime import UTC, datetime
 
+from prefect import get_run_logger, task
 
 # Maps common tag variants to a canonical tech name.
 # Extend this dict as new aliases appear in the data.
 TECH_ALIASES: dict[str, str] = {
-    "react.js": "React",        "reactjs": "React",
-    "node.js": "Node.js",       "nodejs": "Node.js",
-    "next.js": "Next.js",       "nextjs": "Next.js",
-    "vue.js": "Vue",            "vuejs": "Vue",
-    "nuxt.js": "Nuxt",          "nuxtjs": "Nuxt",
-    "express.js": "Express",    "expressjs": "Express",
-    "postgres": "PostgreSQL",   "postgresql": "PostgreSQL",
-    "mongo": "MongoDB",         "mongodb": "MongoDB",
+    "react.js": "React",
+    "reactjs": "React",
+    "node.js": "Node.js",
+    "nodejs": "Node.js",
+    "next.js": "Next.js",
+    "nextjs": "Next.js",
+    "vue.js": "Vue",
+    "vuejs": "Vue",
+    "nuxt.js": "Nuxt",
+    "nuxtjs": "Nuxt",
+    "express.js": "Express",
+    "expressjs": "Express",
+    "postgres": "PostgreSQL",
+    "postgresql": "PostgreSQL",
+    "mongo": "MongoDB",
+    "mongodb": "MongoDB",
     "ml": "Machine Learning",
     "ai": "AI",
     "k8s": "Kubernetes",
@@ -34,7 +41,7 @@ KNOWN_COUNTRIES: list[tuple[str, str]] = [
     ("u.s.a", "United States"),
     ("united kingdom", "United Kingdom"),
     ("u.k.", "United Kingdom"),
-    (" uk", "United Kingdom"),       # leading space avoids matching "bulk", "duke", etc.
+    (" uk", "United Kingdom"),  # leading space avoids matching "bulk", "duke", etc.
     ("germany", "Germany"),
     ("deutschland", "Germany"),
     ("canada", "Canada"),
@@ -97,7 +104,7 @@ def _parse_date(created_at) -> str | None:
         return None
     try:
         if isinstance(created_at, int):
-            return datetime.fromtimestamp(created_at, tz=timezone.utc).date().isoformat()
+            return datetime.fromtimestamp(created_at, tz=UTC).date().isoformat()
         # Fallback: string like "YYYY-MM-DD HH:MM:SS"
         return str(created_at)[:10]
     except Exception:
@@ -108,7 +115,7 @@ def _parse_date(created_at) -> str | None:
 def transform_jobs(raw_jobs: list[dict]) -> list[dict]:
     """Cleans and normalises bronze records into silver-ready dicts."""
     logger = get_run_logger()
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     cleaned: list[dict] = []
 
     for job in raw_jobs:
@@ -120,22 +127,24 @@ def transform_jobs(raw_jobs: list[dict]) -> list[dict]:
 
         # Arbeitnow's public endpoint does not expose structured salary fields.
         # salary_min/max stay NULL; extend here if a future API version adds them.
-        cleaned.append({
-            "slug":         job["slug"],
-            "title":        job.get("title"),
-            "company":      job.get("company_name") or "Unknown",
-            "country":      country,
-            "city":         city,
-            "remote":       job.get("remote", False),
-            "tech_stack":   tech_stack,
-            "job_types":    job.get("job_types") or [],
-            "salary_min":   None,
-            "salary_max":   None,
-            "currency":     None,
-            "posted_date":  _parse_date(job.get("created_at")),
-            "source_url":   job.get("url"),
-            "processed_at": now,
-        })
+        cleaned.append(
+            {
+                "slug": job["slug"],
+                "title": job.get("title"),
+                "company": job.get("company_name") or "Unknown",
+                "country": country,
+                "city": city,
+                "remote": job.get("remote", False),
+                "tech_stack": tech_stack,
+                "job_types": job.get("job_types") or [],
+                "salary_min": None,
+                "salary_max": None,
+                "currency": None,
+                "posted_date": _parse_date(job.get("created_at")),
+                "source_url": job.get("url"),
+                "processed_at": now,
+            }
+        )
 
     logger.info(f"Transformed {len(cleaned)} jobs for silver layer")
     return cleaned

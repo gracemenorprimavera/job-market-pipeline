@@ -1,8 +1,8 @@
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from prefect import task, get_run_logger
-from supabase import create_client, Client
+from prefect import get_run_logger, task
+from supabase import Client, create_client
 
 from config.settings import settings
 
@@ -16,16 +16,13 @@ def get_supabase() -> Client:
 # Incremental load helper
 # ---------------------------------------------------------------------------
 
+
 @task(name="get-latest-slug")
 def get_latest_slug() -> str | None:
     """Returns the slug of the most recently ingested job for incremental loading."""
     client = get_supabase()
     result = (
-        client.table("jobs_raw")
-        .select("slug")
-        .order("ingested_at", desc=True)
-        .limit(1)
-        .execute()
+        client.table("jobs_raw").select("slug").order("ingested_at", desc=True).limit(1).execute()
     )
     rows = result.data
     slug = rows[0]["slug"] if rows else None
@@ -37,12 +34,13 @@ def get_latest_slug() -> str | None:
 # Bronze
 # ---------------------------------------------------------------------------
 
+
 @task(name="quality-check-bronze")
 def quality_check_bronze(jobs: list[dict]) -> dict:
     """Returns a stats dict so callers can include results in artifacts/emails."""
     logger = get_run_logger()
-    null_company   = sum(1 for j in jobs if not j.get("company_name"))
-    slugs          = [j["slug"] for j in jobs]
+    null_company = sum(1 for j in jobs if not j.get("company_name"))
+    slugs = [j["slug"] for j in jobs]
     duplicate_slugs = len(slugs) - len(set(slugs))
 
     if len(jobs) == 0:
@@ -69,20 +67,20 @@ def load_raw_jobs(jobs: list[dict]) -> int:
         return 0
 
     client = get_supabase()
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
 
     rows = [
         {
-            "slug":        job["slug"],
-            "title":       job.get("title"),
-            "company":     job.get("company_name"),
-            "location":    job.get("location"),
-            "remote":      job.get("remote", False),
-            "tags":        job.get("tags") or [],
-            "job_types":   job.get("job_types") or [],
-            "url":         job.get("url"),
+            "slug": job["slug"],
+            "title": job.get("title"),
+            "company": job.get("company_name"),
+            "location": job.get("location"),
+            "remote": job.get("remote", False),
+            "tags": job.get("tags") or [],
+            "job_types": job.get("job_types") or [],
+            "url": job.get("url"),
             "description": job.get("description"),
-            "raw_json":    json.dumps(job),
+            "raw_json": json.dumps(job),
             "ingested_at": now,
         }
         for job in jobs
@@ -107,17 +105,16 @@ def load_raw_jobs(jobs: list[dict]) -> int:
 # Silver
 # ---------------------------------------------------------------------------
 
+
 @task(name="quality-check-silver")
 def quality_check_silver(jobs: list[dict]) -> dict:
     """Returns a stats dict so callers can include results in artifacts/emails."""
     logger = get_run_logger()
     null_company = sum(1 for j in jobs if not j.get("company") or j["company"] == "Unknown")
-    null_date    = sum(1 for j in jobs if not j.get("posted_date"))
+    null_date = sum(1 for j in jobs if not j.get("posted_date"))
 
     if null_company > len(jobs) * 0.1:
-        logger.warning(
-            f"DQ WARN: {null_company}/{len(jobs)} silver records have no company (>10%)"
-        )
+        logger.warning(f"DQ WARN: {null_company}/{len(jobs)} silver records have no company (>10%)")
     if null_date > len(jobs) * 0.2:
         logger.warning(
             f"DQ WARN: {null_date}/{len(jobs)} silver records have no posted_date (>20%)"
@@ -156,6 +153,7 @@ def load_clean_jobs(jobs: list[dict]) -> int:
 # ---------------------------------------------------------------------------
 # Gold
 # ---------------------------------------------------------------------------
+
 
 @task(name="build-analytics-table")
 def build_analytics_table() -> None:

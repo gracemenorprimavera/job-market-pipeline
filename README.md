@@ -32,6 +32,7 @@ Arbeitnow API
 job-market-pipeline/
 ├── .github/
 │   └── workflows/
+│       ├── pr-checks.yml       # CI: lint, types, security, dead code, tests on every PR
 │       └── deploy.yml          # CI: auto-deploy + email on merge to main
 ├── config/
 │   └── settings.py             # Pydantic settings (reads .env)
@@ -51,9 +52,13 @@ job-market-pipeline/
 │   ├── transform_jobs.py        # Clean + normalise raw jobs
 │   ├── load_supabase.py         # Upsert to bronze/silver, call refresh_gold()
 │   └── notify.py                # Prefect artifact + Resend email summary
+├── tests/
+│   ├── __init__.py
+│   └── test_transform.py        # Unit tests for transform utility functions
 ├── .env.example                 # Required environment variables template
+├── .secrets.baseline            # detect-secrets baseline (no secrets in repo)
 ├── prefect.yaml                 # Prefect Cloud deployment config
-├── pyproject.toml               # uv project + dependencies
+├── pyproject.toml               # uv project + dependencies + tool configs (ruff/mypy/bandit)
 └── run_local.py                 # Local dev launcher (loads .env before Prefect init)
 ```
 
@@ -129,6 +134,46 @@ This script:
 The deployment runs daily at **06:00 UTC** via the `default-work-pool` managed work pool.
 
 ## CI/CD — GitHub Actions
+
+### PR Checks (`pr-checks.yml`)
+
+Every pull request targeting `main` must pass **5 parallel quality gates** before it can be merged:
+
+| Job | Tool | What it enforces |
+|-----|------|-----------------|
+| Lint & Format | `ruff` | PEP 8, import order, dead imports, modernised syntax |
+| Type Check | `mypy` | Static type correctness across all modules |
+| Security | `bandit` + `pip-audit` + `detect-secrets` | Unsafe code patterns, CVEs in dependencies, committed secrets |
+| Dead Code | `vulture` | Unused functions, variables, imports (≥ 80% confidence) |
+| Tests & Coverage | `pytest` + `pytest-cov` | All tests green, coverage ≥ 30% (raise as suite grows) |
+
+Run all checks locally before pushing:
+
+```bash
+uv run ruff check .               # lint
+uv run ruff format --check .      # format
+uv run mypy config/ tasks/ flows/ deployment/
+uv run bandit -r config/ tasks/ flows/ deployment/ -c pyproject.toml
+uv run pip-audit
+uv run detect-secrets scan --baseline .secrets.baseline
+uv run vulture config/ tasks/ flows/ deployment/ --min-confidence 80
+uv run pytest --cov --cov-report=term-missing
+```
+
+Auto-fix lint and format issues:
+
+```bash
+uv run ruff check --fix .
+uv run ruff format .
+```
+
+Update the secrets baseline when a new safe value is flagged:
+
+```bash
+uv run detect-secrets scan --exclude-files 'uv\.lock|\.venv' > .secrets.baseline
+```
+
+### Deploy (`deploy.yml`)
 
 `.github/workflows/deploy.yml` triggers on every push to `main` (i.e. merged PR):
 

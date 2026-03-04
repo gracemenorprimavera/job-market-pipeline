@@ -2,15 +2,15 @@ from prefect import flow, get_run_logger
 
 from tasks.extract_jobs import extract_jobs
 from tasks.load_supabase import (
-    get_latest_slug,
-    load_raw_jobs,
-    load_clean_jobs,
     build_analytics_table,
+    get_latest_slug,
+    load_clean_jobs,
+    load_raw_jobs,
     quality_check_bronze,
     quality_check_silver,
 )
+from tasks.notify import create_pipeline_artifact, get_gold_summary, send_summary_email
 from tasks.transform_jobs import transform_jobs
-from tasks.notify import get_gold_summary, create_pipeline_artifact, send_summary_email
 
 
 @flow(
