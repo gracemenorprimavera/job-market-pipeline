@@ -1,0 +1,41 @@
+name: job-market-pipeline
+prefect-version: "3.6.20"
+
+build: null
+push: null
+
+pull:
+  - prefect.deployments.steps.git_clone:
+      repository: https://github.com/gracemenorprimavera/job-market-pipeline.git
+      branch: main
+
+deployments:
+  - name: daily-job-pipeline
+    version: "1.0.0"
+    tags: ["job-market", "elt", "daily"]
+    description: "Daily Arbeitnow → Supabase ELT pipeline with bronze/silver/gold layers"
+
+    entrypoint: flows/job_pipeline.py:job_pipeline
+
+    work_pool:
+      name: default-work-pool
+      job_variables:
+        pip_packages:
+          - "supabase>=2.28.0"
+          - "pydantic-settings>=2.13.1"
+          - "httpx>=0.28.1"
+          - "resend>=2.23.0"
+        env:
+          SUPABASE_URL: "{{ prefect.variables.supabase_url }}"
+          SUPABASE_SERVICE_KEY: "{{ prefect.variables.supabase_service_key }}"
+          RESEND_API_KEY: "{{ prefect.variables.resend_api_key }}"
+          EMAIL_FROM: "{{ prefect.variables.email_from }}"
+          EMAIL_RECIPIENT: "{{ prefect.variables.email_recipient }}"
+
+    parameters:
+      full_refresh: false
+
+    schedules:
+      - cron: "0 6 * * *"
+        timezone: "UTC"
+        active: true
