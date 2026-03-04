@@ -8,8 +8,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 import os
 
-# Load .env so we can read values to push as Prefect variables
-load_dotenv(Path(__file__).parent.parent / ".env", override=True)
+# Load .env for local runs; override=False keeps CI secrets (already in env) intact
+load_dotenv(Path(__file__).parent.parent / ".env", override=False)
 
 VARIABLES = {
     "supabase_url":       os.environ["SUPABASE_URL"],

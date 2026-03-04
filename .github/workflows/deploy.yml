@@ -1,0 +1,48 @@
+name: Deploy to Prefect Cloud
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy & Notify
+    runs-on: ubuntu-latest
+
+    env:
+      SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      RESEND_API_KEY:       ${{ secrets.RESEND_API_KEY }}
+      EMAIL_FROM:           ${{ secrets.EMAIL_FROM }}
+      EMAIL_RECIPIENT:      ${{ secrets.EMAIL_RECIPIENT }}
+      PREFECT_API_KEY:      ${{ secrets.PREFECT_API_KEY }}
+      PREFECT_API_URL:      ${{ secrets.PREFECT_API_URL }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Deploy to Prefect Cloud
+        run: uv run python deployment/deploy.py
+
+      - name: Send deployment notification
+        if: always()
+        run: uv run python deployment/notify_deploy.py
+        env:
+          DEPLOY_STATUS: ${{ job.status }}
+          GH_ACTOR:      ${{ github.actor }}
+          GH_SHA:        ${{ github.sha }}
+          GH_RUN_URL:    ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          GH_COMMIT_MSG: ${{ github.event.head_commit.message }}
