@@ -1,0 +1,17 @@
+[project]
+name = "job-market-pipeline"
+version = "0.1.0"
+description = "Daily ELT pipeline: Arbeitnow → Supabase (bronze/silver/gold) orchestrated with Prefect"
+requires-python = ">=3.13"
+dependencies = [
+    "httpx>=0.28.1",
+    "prefect>=3.6.20",
+    "pydantic-settings>=2.13.1",
+    "resend>=2.23.0",
+    "supabase>=2.28.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]
