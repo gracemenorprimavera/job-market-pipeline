@@ -1,8 +1,8 @@
 import json
-import resend
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from prefect import task, get_run_logger
+import resend
+from prefect import get_run_logger, task
 from prefect.artifacts import create_markdown_artifact
 from supabase import create_client
 
@@ -16,6 +16,7 @@ def _get_supabase():
 # ---------------------------------------------------------------------------
 # Gold summary fetch
 # ---------------------------------------------------------------------------
+
 
 @task(name="get-gold-summary")
 def get_gold_summary() -> list[dict]:
@@ -34,6 +35,7 @@ def get_gold_summary() -> list[dict]:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _top_tech_str(top_tech_stack, n: int = 8) -> str:
     """Returns a comma-separated string of the top N tech tags from a gold row."""
@@ -62,8 +64,16 @@ def _build_markdown(
         for r in gold_rows
     )
 
-    dq_bronze_status = "✅ No issues" if dq_bronze["null_companies"] == 0 and dq_bronze["duplicate_slugs"] == 0 else "⚠️ Warnings"
-    dq_silver_status = "✅ No issues" if dq_silver["null_companies"] == 0 and dq_silver["null_dates"] == 0 else "⚠️ Warnings"
+    dq_bronze_status = (
+        "✅ No issues"
+        if dq_bronze["null_companies"] == 0 and dq_bronze["duplicate_slugs"] == 0
+        else "⚠️ Warnings"
+    )
+    dq_silver_status = (
+        "✅ No issues"
+        if dq_silver["null_companies"] == 0 and dq_silver["null_dates"] == 0
+        else "⚠️ Warnings"
+    )
 
     return f"""## Job Market Pipeline — Run Summary
 
@@ -75,8 +85,8 @@ def _build_markdown(
 
 | Layer | Rows fetched | Rows loaded |
 |-------|-------------|-------------|
-| Bronze (`jobs_raw`) | {dq_bronze['total']:,} | {bronze_count:,} |
-| Silver (`jobs_clean`) | {dq_silver['total']:,} | {silver_count:,} |
+| Bronze (`jobs_raw`) | {dq_bronze["total"]:,} | {bronze_count:,} |
+| Silver (`jobs_clean`) | {dq_silver["total"]:,} | {silver_count:,} |
 
 ---
 
@@ -84,8 +94,8 @@ def _build_markdown(
 
 | Layer | Status | Detail |
 |-------|--------|--------|
-| Bronze | {dq_bronze_status} | {dq_bronze['null_companies']} null companies · {dq_bronze['duplicate_slugs']} duplicate slugs (auto-deduped) |
-| Silver | {dq_silver_status} | {dq_silver['null_companies']} unknown companies · {dq_silver['null_dates']} null dates |
+| Bronze | {dq_bronze_status} | {dq_bronze["null_companies"]} null companies · {dq_bronze["duplicate_slugs"]} duplicate slugs (auto-deduped) |
+| Silver | {dq_silver_status} | {dq_silver["null_companies"]} unknown companies · {dq_silver["null_dates"]} null dates |
 
 ---
 
@@ -119,8 +129,12 @@ def _build_html(
         for r in gold_rows
     )
 
-    dq_bronze_badge = "✅" if dq_bronze["null_companies"] == 0 and dq_bronze["duplicate_slugs"] == 0 else "⚠️"
-    dq_silver_badge = "✅" if dq_silver["null_companies"] == 0 and dq_silver["null_dates"] == 0 else "⚠️"
+    dq_bronze_badge = (
+        "✅" if dq_bronze["null_companies"] == 0 and dq_bronze["duplicate_slugs"] == 0 else "⚠️"
+    )
+    dq_silver_badge = (
+        "✅" if dq_silver["null_companies"] == 0 and dq_silver["null_dates"] == 0 else "⚠️"
+    )
 
     return f"""<!DOCTYPE html>
 <html>
@@ -144,8 +158,8 @@ def _build_html(
 <h3>Extraction &amp; Load</h3>
 <table>
   <tr><th>Layer</th><th>Rows fetched</th><th>Rows loaded</th></tr>
-  <tr><td>Bronze (jobs_raw)</td><td>{dq_bronze['total']:,}</td><td>{bronze_count:,}</td></tr>
-  <tr><td>Silver (jobs_clean)</td><td>{dq_silver['total']:,}</td><td>{silver_count:,}</td></tr>
+  <tr><td>Bronze (jobs_raw)</td><td>{dq_bronze["total"]:,}</td><td>{bronze_count:,}</td></tr>
+  <tr><td>Silver (jobs_clean)</td><td>{dq_silver["total"]:,}</td><td>{silver_count:,}</td></tr>
 </table>
 
 <h3>Data Quality</h3>
@@ -154,12 +168,12 @@ def _build_html(
   <tr>
     <td>Bronze</td>
     <td>{dq_bronze_badge}</td>
-    <td>{dq_bronze['null_companies']} null companies · {dq_bronze['duplicate_slugs']} duplicate slugs (auto-deduped)</td>
+    <td>{dq_bronze["null_companies"]} null companies · {dq_bronze["duplicate_slugs"]} duplicate slugs (auto-deduped)</td>
   </tr>
   <tr>
     <td>Silver</td>
     <td>{dq_silver_badge}</td>
-    <td>{dq_silver['null_companies']} unknown companies · {dq_silver['null_dates']} null dates</td>
+    <td>{dq_silver["null_companies"]} unknown companies · {dq_silver["null_dates"]} null dates</td>
   </tr>
 </table>
 
@@ -182,6 +196,7 @@ def _build_html(
 # Tasks
 # ---------------------------------------------------------------------------
 
+
 @task(name="create-pipeline-artifact")
 def create_pipeline_artifact(
     dq_bronze: dict,
@@ -190,8 +205,10 @@ def create_pipeline_artifact(
     silver_count: int,
     gold_rows: list[dict],
 ) -> None:
-    run_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-    markdown = _build_markdown(run_time, dq_bronze, bronze_count, dq_silver, silver_count, gold_rows)
+    run_time = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
+    markdown = _build_markdown(
+        run_time, dq_bronze, bronze_count, dq_silver, silver_count, gold_rows
+    )
     create_markdown_artifact(
         key="pipeline-summary",
         markdown=markdown,
@@ -218,15 +235,17 @@ def send_summary_email(
         logger.warning("EMAIL_RECIPIENT not set — skipping email notification")
         return
 
-    run_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    run_time = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
     html = _build_html(run_time, dq_bronze, bronze_count, dq_silver, silver_count, gold_rows)
 
     resend.api_key = settings.resend_api_key
-    resend.Emails.send({
-        "from":    settings.email_from,
-        "to":      [settings.email_recipient],
-        "subject": f"✅ Job Market Pipeline — {run_time}",
-        "html":    html,
-    })
+    resend.Emails.send(
+        {
+            "from": settings.email_from,
+            "to": [settings.email_recipient],
+            "subject": f"✅ Job Market Pipeline — {run_time}",
+            "html": html,
+        }
+    )
 
     logger.info(f"Summary email sent to {settings.email_recipient}")

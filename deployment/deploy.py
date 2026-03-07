@@ -2,21 +2,23 @@
 Registers Prefect Cloud variables and deploys the flow.
 Run once: uv run python deployment/deploy.py
 """
+
+import os
 import subprocess
 import sys
 from pathlib import Path
+
 from dotenv import load_dotenv
-import os
 
 # Load .env for local runs; override=False keeps CI secrets (already in env) intact
 load_dotenv(Path(__file__).parent.parent / ".env", override=False)
 
 VARIABLES = {
-    "supabase_url":       os.environ["SUPABASE_URL"],
+    "supabase_url": os.environ["SUPABASE_URL"],
     "supabase_service_key": os.environ["SUPABASE_SERVICE_KEY"],
-    "resend_api_key":     os.environ.get("RESEND_API_KEY", ""),
-    "email_from":         os.environ.get("EMAIL_FROM", "onboarding@resend.dev"),
-    "email_recipient":    os.environ.get("EMAIL_RECIPIENT", ""),
+    "resend_api_key": os.environ.get("RESEND_API_KEY", ""),
+    "email_from": os.environ.get("EMAIL_FROM", "onboarding@resend.dev"),
+    "email_recipient": os.environ.get("EMAIL_RECIPIENT", ""),
 }
 
 ROOT = Path(__file__).parent.parent

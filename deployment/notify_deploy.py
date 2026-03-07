@@ -2,7 +2,9 @@
 Sends a Resend email when the GitHub Actions deployment completes.
 Called automatically from .github/workflows/deploy.yml with DEPLOY_STATUS set.
 """
+
 import os
+
 import resend
 
 
@@ -17,24 +19,21 @@ def main() -> None:
         print("EMAIL_RECIPIENT not set -- skipping deploy notification")
         return
 
-    email_from  = os.environ.get("EMAIL_FROM", "onboarding@resend.dev")
-    status      = os.environ.get("DEPLOY_STATUS", "unknown").lower()
-    actor       = os.environ.get("GH_ACTOR", "unknown")
-    sha         = os.environ.get("GH_SHA", "")[:7]
-    run_url     = os.environ.get("GH_RUN_URL", "#")
-    commit_msg  = os.environ.get("GH_COMMIT_MSG", "").split("\n")[0]  # first line only
+    email_from = os.environ.get("EMAIL_FROM", "onboarding@resend.dev")
+    status = os.environ.get("DEPLOY_STATUS", "unknown").lower()
+    actor = os.environ.get("GH_ACTOR", "unknown")
+    sha = os.environ.get("GH_SHA", "")[:7]
+    run_url = os.environ.get("GH_RUN_URL", "#")
+    commit_msg = os.environ.get("GH_COMMIT_MSG", "").split("\n")[0]  # first line only
 
-    is_success  = status == "success"
-    emoji       = "OK" if is_success else "FAIL"
+    is_success = status == "success"
+    emoji = "OK" if is_success else "FAIL"
     status_label = "Succeeded" if is_success else "Failed"
-    accent      = "#16a34a" if is_success else "#dc2626"
-    badge_bg    = "#dcfce7" if is_success else "#fee2e2"
-    badge_fg    = "#15803d" if is_success else "#b91c1c"
+    accent = "#16a34a" if is_success else "#dc2626"
+    badge_bg = "#dcfce7" if is_success else "#fee2e2"
+    badge_fg = "#15803d" if is_success else "#b91c1c"
 
-    commit_row = (
-        f"<tr><td>Commit message</td><td>{commit_msg}</td></tr>"
-        if commit_msg else ""
-    )
+    commit_row = f"<tr><td>Commit message</td><td>{commit_msg}</td></tr>" if commit_msg else ""
 
     html = f"""<!DOCTYPE html>
 <html>
@@ -67,12 +66,14 @@ def main() -> None:
 </html>"""
 
     resend.api_key = api_key
-    resend.Emails.send({
-        "from":    email_from,
-        "to":      [recipient],
-        "subject": f"[{emoji}] Prefect Deploy {status_label} -- {sha}",
-        "html":    html,
-    })
+    resend.Emails.send(
+        {
+            "from": email_from,
+            "to": [recipient],
+            "subject": f"[{emoji}] Prefect Deploy {status_label} -- {sha}",
+            "html": html,
+        }
+    )
     print(f"Deploy notification sent to {recipient} (status: {status_label})")
 
 

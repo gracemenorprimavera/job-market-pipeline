@@ -1,5 +1,6 @@
 import httpx
-from prefect import task, get_run_logger
+from prefect import get_run_logger, task
+
 from config.settings import settings
 
 

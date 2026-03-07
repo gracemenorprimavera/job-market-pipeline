@@ -1,0 +1,125 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 1. Lint & Format
+  # ---------------------------------------------------------------------------
+  lint-and-format:
+    name: Lint & Format (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Ruff lint
+        run: uv run ruff check .
+
+      - name: Ruff format check
+        run: uv run ruff format --check .
+
+  # ---------------------------------------------------------------------------
+  # 2. Type Check
+  # ---------------------------------------------------------------------------
+  type-check:
+    name: Type Check (mypy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: mypy
+        run: uv run mypy config/ tasks/ flows/ deployment/
+
+  # ---------------------------------------------------------------------------
+  # 3. Security (bandit + pip-audit + detect-secrets)
+  # ---------------------------------------------------------------------------
+  security:
+    name: Security (bandit + pip-audit + detect-secrets)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Bandit security scan
+        run: uv run bandit -r config/ tasks/ flows/ deployment/ -c pyproject.toml
+
+      - name: pip-audit dependency vulnerability check
+        run: uv run pip-audit
+
+      - name: Secrets scan
+        run: uv run detect-secrets scan --baseline .secrets.baseline
+
+  # ---------------------------------------------------------------------------
+  # 4. Dead Code
+  # ---------------------------------------------------------------------------
+  dead-code:
+    name: Dead Code (vulture)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Vulture dead code check
+        run: uv run vulture config/ tasks/ flows/ deployment/ --min-confidence 80
+
+  # ---------------------------------------------------------------------------
+  # 5. Tests & Coverage
+  # ---------------------------------------------------------------------------
+  test:
+    name: Tests & Coverage (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run tests with coverage
+        run: uv run pytest --cov --cov-report=term-missing
+        env:
+          # Provide dummy env vars so settings.py doesn't fail on import
+          SUPABASE_URL: "https://placeholder.supabase.co"
+          SUPABASE_SERVICE_KEY: "placeholder-key"
